@@ -1,3 +1,9 @@
+export const config = {
+  api: {
+    bodyParser: false, // required for streaming form-data (file uploads)
+  },
+};
+
 export default async function handler(req, res) {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -18,23 +24,26 @@ export default async function handler(req, res) {
       {
         method: "POST",
         headers: {
-          ...req.headers,
-          host: undefined, // avoid host header conflicts
+          "content-type": req.headers["content-type"],
         },
-        body: req, // for simple JSON; for file uploads we'll tweak
+        body: req, // stream raw request (works for JSON + files)
       }
     );
 
-    const data = await n8nResponse.json();
+    const text = await n8nResponse.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text }; // fallback if not JSON
+    }
 
     res.setHeader("Access-Control-Allow-Origin", "https://ashwinchandran01.github.io");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
     return res.status(200).json(data);
-
   } catch (err) {
-    console.error("Proxy error:", err);
     return res.status(500).json({ error: "Proxy failed", details: err.message });
   }
 }
